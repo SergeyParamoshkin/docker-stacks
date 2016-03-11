@@ -10,7 +10,7 @@ USER root
 
 # Install all OS dependencies for fully functional notebook server
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get install -yq --no-install-recommends \
+	RUN apt-get update && apt-get install -yq --no-install-recommends \
     git \
     vim \
     jed \
@@ -65,6 +65,8 @@ RUN mkdir /home/$NB_USER/work && \
     mkdir /home/$NB_USER/.jupyter && \
     mkdir /home/$NB_USER/.local
 
+RUN chmod 777 -R /home/$NB_USER/ && chown $NB_USER /home/$NB_USER/work
+
 # Install conda as jovyan
 RUN cd /tmp && \
     mkdir -p $CONDA_DIR && \
@@ -75,14 +77,17 @@ RUN cd /tmp && \
     $CONDA_DIR/bin/conda install --quiet --yes conda==3.19.1 && \
     conda clean -tipsy
 
-# Install Jupyter notebook as jovyan
+USER root 
+
 RUN conda install --quiet --yes \
     'notebook=4.1*' \
     terminado \
     && conda clean -tipsy
 
-USER root
-
+COPY ./install.sh /tmp/
+RUN /bin/bash /tmp/install.sh
+RUN ls -la /usr/local/share/jupyter/kernels/
+RUN rm -f /tmp/install.sh
 # Configure container startup as root
 EXPOSE 8888
 WORKDIR /home/$NB_USER/work
@@ -94,5 +99,7 @@ COPY start-notebook.sh /usr/local/bin/
 COPY jupyter_notebook_config.py /home/$NB_USER/.jupyter/
 RUN chown -R $NB_USER:users /home/$NB_USER/.jupyter
 
+RUN pip install ipyparallel
+RUN ipcluster nbextension enable
 # Switch back to jovyan to avoid accidental container runs as root
 USER jovyan
